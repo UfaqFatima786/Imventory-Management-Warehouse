@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { Warehouse, Stock, User } = require('../models');
 const { protect, authorize } = require('../middleware/auth');
 const { httpError } = require('../utils/helpers');
+const { recordActivity } = require('../services/activity');
 
 router.use(protect);
 
@@ -28,6 +29,7 @@ router.post('/', authorize('admin'), async (req, res) => {
   await checkManager(manager);
   const wh = await Warehouse.create({ name, location, capacity, manager: manager || undefined });
   await syncManager(wh);
+  await recordActivity({ action: 'Warehouse created', details: `Warehouse ${wh.name} created`, user: req.user, warehouse: wh._id, entityType: 'warehouse', entityId: wh._id });
   res.status(201).json(wh);
 });
 
@@ -40,16 +42,19 @@ router.put('/:id', authorize('admin'), async (req, res) => {
   Object.assign(wh, { name, location, capacity, manager: manager || null });
   await wh.save();
   await syncManager(wh, prev);
+  await recordActivity({ action: 'Warehouse updated', details: `Warehouse ${wh.name} updated`, user: req.user, warehouse: wh._id, recipients: [prev, wh.manager], entityType: 'warehouse', entityId: wh._id });
   res.json(wh);
 });
 
 router.delete('/:id', authorize('admin'), async (req, res) => {
   const inUse = await Stock.exists({ warehouse: req.params.id, quantity: { $gt: 0 } });
   if (inUse) throw httpError(400, 'Cannot delete a warehouse that still holds stock');
-  const wh = await Warehouse.findByIdAndDelete(req.params.id);
+  const wh = await Warehouse.findById(req.params.id);
   if (!wh) throw httpError(404, 'Warehouse not found');
+  await wh.deleteOne();
   await Stock.deleteMany({ warehouse: wh._id });
   await User.updateMany({}, { $pull: { assignedWarehouses: wh._id } });
+  await recordActivity({ action: 'Warehouse deleted', details: `Warehouse ${wh.name} deleted`, user: req.user, recipients: [wh.manager], entityType: 'warehouse', entityId: wh._id });
   res.json({ message: 'Warehouse deleted' });
 });
 

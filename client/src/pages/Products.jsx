@@ -3,13 +3,14 @@ import api, { errMsg } from '../api';
 import { useAuth } from '../AuthContext';
 import { Badge, Confirm, Empty, ImageField, Modal, PageHead, Spinner, Thumb, money, useFetch, useToast } from '../ui';
 
-const blank = { name: '', sku: '', category: '', price: '', lowStockLimit: 10, description: '', supplier: '', imageUrl: '', imageFileId: '' };
+const blank = { name: '', sku: '', barcode: '', category: '', price: '', lowStockLimit: 10, description: '', supplier: '', imageUrl: '', imageFileId: '' };
 
 export default function Products() {
   const { user } = useAuth();
   const toast = useToast();
   const [q, setQ] = useState(''), [category, setCategory] = useState(''), [warehouse, setWarehouse] = useState('');
-  const { data, loading, reload } = useFetch('/products', { q, category, warehouse });
+  const [supplier, setSupplier] = useState(''), [availability, setAvailability] = useState('');
+  const { data, loading, reload } = useFetch('/products', { q, category, warehouse, supplier, availability });
   const { data: cats, reload: reloadCats } = useFetch('/products/categories');
   const { data: whs } = useFetch('/warehouses');
   const { data: sups } = useFetch('/users/suppliers');
@@ -39,9 +40,11 @@ export default function Products() {
         {canEdit && <button className="btn amber" onClick={() => setForm({ ...blank })}>Add product</button>}
       </PageHead>
       <div className="filters">
-        <input placeholder="Search name or SKU" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder="Scan barcode or search SKU / name" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">All categories</option>{cats?.map((c) => <option key={c}>{c}</option>)}</select>
+        <select value={supplier} onChange={(e) => setSupplier(e.target.value)}><option value="">All suppliers</option>{sups?.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}</select>
         <select value={warehouse} onChange={(e) => setWarehouse(e.target.value)}><option value="">Stock: all warehouses</option>{whs?.map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select>
+        <select value={availability} onChange={(e) => setAvailability(e.target.value)}><option value="">All availability</option><option value="in-stock">In stock</option><option value="low-stock">Low stock</option><option value="out-of-stock">Out of stock</option></select>
       </div>
       {loading ? <Spinner /> : (
         <div className="tablewrap"><table>
@@ -49,7 +52,7 @@ export default function Products() {
           <tbody>{data?.map((p) => (
             <tr key={p._id}>
               <td><div className="cell"><Thumb src={p.imageUrl} name={p.name} />{p.name}</div></td>
-              <td>{p.sku}</td><td>{p.category}</td><td className="num">{money(p.price)}</td><td>{p.supplier?.name || '-'}</td>
+              <td>{p.sku}{p.barcode && <><br /><small className="muted">Barcode: {p.barcode}</small></>}</td><td>{p.category}</td><td className="num">{money(p.price)}</td><td>{p.supplier?.name || '-'}</td>
               <td className="num"><Badge tone={p.availableStock <= p.lowStockLimit ? 'low' : 'ok'}>{p.availableStock}</Badge></td>
               <td><div className="rowbtns">
                 <button className="btn sm ghost" onClick={() => open(p)}>Details</button>
@@ -66,6 +69,7 @@ export default function Products() {
             <div className="cols">
               <div className="field"><label>Name</label><input required value={form.name} onChange={set('name')} /></div>
               <div className="field"><label>SKU</label><input required value={form.sku} onChange={set('sku')} /></div>
+              <div className="field"><label>Barcode (optional)</label><input value={form.barcode || ''} onChange={set('barcode')} /></div>
               <div className="field"><label>Category</label><input list="cats" value={form.category || ''} onChange={set('category')} /><datalist id="cats">{cats?.map((c) => <option key={c} value={c} />)}</datalist></div>
               <div className="field"><label>Supplier</label><select value={form.supplier} onChange={set('supplier')}><option value="">No supplier</option>{sups?.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}</select></div>
               <div className="field"><label>Price (Rs.)</label><input type="number" min="0" required value={form.price} onChange={set('price')} /></div>

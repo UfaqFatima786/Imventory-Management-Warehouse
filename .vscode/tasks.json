@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install QR code dependencies",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install",
+				"qrcode.react",
+				"html5-qrcode",
+				"--prefix",
+				"E:\\ims\\client"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

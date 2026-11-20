@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { Spinner } from './ui';
@@ -12,6 +13,9 @@ import Orders from './pages/Orders';
 import Supply from './pages/Supply';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
+import Activity from './pages/Activity';
+import Notifications from './pages/Notifications';
+const Analytics = lazy(() => import('./pages/Analytics'));
 
 // UI-level guard only; every API call is independently authorised by the backend.
 function Guard({ roles, children }) {
@@ -36,6 +40,9 @@ export default function App() {
         <Route path="warehouses" element={page([A, M], <Warehouses />)} />
         <Route path="inventory" element={page([A, M], <Inventory />)} />
         <Route path="transactions" element={page([A, M], <Transactions />)} />
+        <Route path="analytics" element={page([A, M], <Suspense fallback={<Spinner />}><Analytics /></Suspense>)} />
+        <Route path="activity" element={page([A, M], <Activity />)} />
+        <Route path="notifications" element={<Notifications />} />
         <Route path="low-stock" element={page([A, M], <LowStock />)} />
         <Route path="orders" element={page([A, M, R], <Orders />)} />
         <Route path="supply" element={page([A, M, S], <Supply />)} />

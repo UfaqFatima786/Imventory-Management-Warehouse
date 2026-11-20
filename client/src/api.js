@@ -6,7 +6,14 @@ api.interceptors.request.use((c) => {
   if (t) c.headers.Authorization = `Bearer ${t}`;
   return c;
 });
-api.interceptors.response.use((r) => r, (e) => {
+api.interceptors.response.use((r) => {
+  const method = r.config.method?.toLowerCase();
+  const url = String(r.config.url || '');
+  if (['post', 'put', 'patch', 'delete'].includes(method) && !url.includes('/notifications')) {
+    window.dispatchEvent(new Event('stockyard:notification-refresh'));
+  }
+  return r;
+}, (e) => {
   if (e.response?.status === 401 && !location.pathname.startsWith('/login')) {
     localStorage.removeItem('token');
     location.href = '/login';

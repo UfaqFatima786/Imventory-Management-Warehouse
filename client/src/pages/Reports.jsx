@@ -7,9 +7,9 @@ export function Transactions() {
   const { data: whs } = useFetch('/warehouses');
   return (
     <>
-      <PageHead title="Stock history" sub="Every stock-in and stock-out, newest first." />
+      <PageHead title="Stock history" sub="Every receipt, dispatch and warehouse transfer, newest first." />
       <div className="filters">
-        <select value={type} onChange={(e) => setType(e.target.value)}><option value="">All movements</option><option value="stock-in">Stock in</option><option value="stock-out">Stock out</option></select>
+        <select value={type} onChange={(e) => setType(e.target.value)}><option value="">All movements</option><option value="stock-in">Stock in</option><option value="stock-out">Stock out</option><option value="transfer-in">Transfer in</option><option value="transfer-out">Transfer out</option></select>
         <select value={warehouse} onChange={(e) => setWarehouse(e.target.value)}><option value="">All warehouses</option>{whs?.map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select>
       </div>
       {loading ? <Spinner /> : (
@@ -17,7 +17,7 @@ export function Transactions() {
           <thead><tr><th>Date</th><th>Type</th><th>Product</th><th>Warehouse</th><th className="num">Qty</th><th>Note</th><th>By</th></tr></thead>
           <tbody>{data?.map((t) => (
             <tr key={t._id}><td>{new Date(t.date).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</td><td><Badge>{t.transactionType}</Badge></td>
-              <td>{t.product?.name}</td><td>{t.warehouse?.name}</td><td className="num">{t.transactionType === 'stock-in' ? '+' : '−'}{t.quantity}</td><td>{t.note}</td><td>{t.performedBy?.name}</td></tr>))}</tbody>
+              <td>{t.product?.name}</td><td>{t.warehouse?.name}</td><td className="num">{['stock-in', 'transfer-in'].includes(t.transactionType) ? '+' : '−'}{t.quantity}</td><td>{t.note}</td><td>{t.performedBy?.name}</td></tr>))}</tbody>
         </table>{!data?.length && <Empty>No transactions found.</Empty>}</div>
       )}
     </>

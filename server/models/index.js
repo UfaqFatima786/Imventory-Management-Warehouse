@@ -20,6 +20,7 @@ const productSchema = new Schema({
   name: { type: String, required: true, trim: true },
   description: String,
   sku: { type: String, required: true, unique: true, uppercase: true, trim: true },
+  barcode: { type: String, unique: true, sparse: true, trim: true },
   category: { type: String, trim: true },
   price: { type: Number, required: true, min: 0 },
   lowStockLimit: { type: Number, default: 10, min: 0 },
@@ -43,11 +44,33 @@ stockSchema.index({ product: 1, warehouse: 1 }, { unique: true }); // no duplica
 
 const txSchema = new Schema({
   product: ref('Product'), warehouse: ref('Warehouse'),
-  transactionType: { type: String, enum: ['stock-in', 'stock-out'], required: true },
+  transactionType: { type: String, enum: ['stock-in', 'stock-out', 'transfer-in', 'transfer-out'], required: true },
   quantity: { type: Number, required: true, min: 1 },
   note: String, performedBy: ref('User'),
   date: { type: Date, default: Date.now },
 });
+
+const activitySchema = new Schema({
+  action: { type: String, required: true },
+  details: { type: String, required: true },
+  user: ref('User'),
+  warehouse: ref('Warehouse'),
+  entityType: String,
+  entityId: String,
+}, { timestamps: true });
+activitySchema.index({ createdAt: -1 });
+
+const notificationSchema = new Schema({
+  recipient: { ...ref('User'), required: true },
+  actor: ref('User'),
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  category: { type: String, default: 'activity' },
+  link: { type: String, default: '/' },
+  entityId: String,
+  readAt: { type: Date, default: null },
+}, { timestamps: true });
+notificationSchema.index({ recipient: 1, readAt: 1, createdAt: -1 });
 
 const orderSchema = new Schema({
   orderNumber: { type: String, unique: true },
@@ -55,6 +78,7 @@ const orderSchema = new Schema({
   products: [{ product: ref('Product'), quantity: Number, price: Number, _id: false }],
   totalAmount: Number,
   warehouse: ref('Warehouse'), createdBy: ref('User'),
+  completedAt: Date,
   status: { type: String, enum: ['Pending', 'Processing', 'Completed', 'Cancelled'], default: 'Pending' },
 }, { timestamps: true });
 
@@ -69,5 +93,6 @@ module.exports = {
   User: model('User', userSchema), Product: model('Product', productSchema),
   Warehouse: model('Warehouse', warehouseSchema), Stock: model('Stock', stockSchema),
   StockTransaction: model('StockTransaction', txSchema), Order: model('Order', orderSchema),
-  SupplyRequest: model('SupplyRequest', supplySchema),
+  SupplyRequest: model('SupplyRequest', supplySchema), ActivityLog: model('ActivityLog', activitySchema),
+  Notification: model('Notification', notificationSchema),
 };

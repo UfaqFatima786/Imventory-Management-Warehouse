@@ -3,6 +3,8 @@ const { Order, Product, Stock, StockTransaction } = require('../models');
 const { protect, authorize, canAccessWarehouse } = require('../middleware/auth');
 const { httpError, positiveInt } = require('../utils/helpers');
 const { stockOut } = require('../services/stock');
+const { recordActivity } = require('../services/activity');
+const { notifyLowStock } = require('../services/notifications');
 
 router.use(protect);
 
@@ -35,6 +37,7 @@ router.post('/', authorize('salesRepresentative'), async (req, res) => {
     orderNumber: `ORD-${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`,
     customerName, customerPhone, warehouse, products: lines, totalAmount, createdBy: req.user._id, status: 'Pending',
   });
+  await recordActivity({ action: 'Order created', details: `Order ${order.orderNumber} for ${customerName} created`, user: req.user, warehouse, entityType: 'order', entityId: order._id });
   res.status(201).json(await populate(Order.findById(order._id)));
 });
 
@@ -63,8 +66,11 @@ router.put('/:id/status', authorize('admin', 'warehouseManager'), async (req, re
   if (!FLOW[order.status]?.includes(next)) throw httpError(400, `Cannot change an order from ${order.status} to ${next}`);
 
   if (next !== 'Processing') {
-    const upd = await Order.findOneAndUpdate({ _id: order._id, status: order.status }, { status: next }, { new: true });
+    const update = { status: next };
+    if (next === 'Completed') update.completedAt = new Date();
+    const upd = await Order.findOneAndUpdate({ _id: order._id, status: order.status }, update, { new: true });
     if (!upd) throw httpError(409, 'Order status changed in the meantime');
+    await recordActivity({ action: 'Order status changed', details: `Order ${order.orderNumber} marked ${next}`, user: req.user, warehouse: order.warehouse, recipients: [order.createdBy], entityType: 'order', entityId: order._id });
     return res.json(upd);
   }
 
@@ -74,8 +80,8 @@ router.put('/:id/status', authorize('admin', 'warehouseManager'), async (req, re
   const done = [];
   try {
     for (const l of order.products) {
-      const r = await stockOut({ product: l.product, warehouse: order.warehouse, quantity: l.quantity, note: `Order ${order.orderNumber}`, user: req.user });
-      done.push({ l, tx: r.tx });
+      const r = await stockOut({ product: l.product, warehouse: order.warehouse, quantity: l.quantity, note: `Order ${order.orderNumber}`, user: req.user, sendNotification: false });
+      done.push({ l, tx: r.tx, stock: r.stock });
     }
   } catch (e) {
     for (const { l, tx } of done) { // roll back partial deductions
@@ -85,6 +91,13 @@ router.put('/:id/status', authorize('admin', 'warehouseManager'), async (req, re
     await Order.updateOne({ _id: order._id }, { status: 'Pending' });
     throw httpError(400, 'Cannot process order: insufficient stock for one or more products');
   }
+  await Promise.all(done.map(({ l, stock }) => notifyLowStock({
+    productId: l.product,
+    warehouseId: order.warehouse,
+    previousQuantity: stock.quantity + l.quantity,
+    quantity: stock.quantity,
+  })));
+  await recordActivity({ action: 'Order processed', details: `Order ${order.orderNumber} processed and stock deducted`, user: req.user, warehouse: order.warehouse, recipients: [order.createdBy], entityType: 'order', entityId: order._id });
   res.json(claimed);
 });
 
@@ -94,6 +107,7 @@ router.put('/:id/cancel', authorize('admin', 'salesRepresentative'), async (req,
   if (req.user.role === 'salesRepresentative' && String(order.createdBy) !== String(req.user._id)) throw httpError(403, 'You can only cancel your own orders');
   const upd = await Order.findOneAndUpdate({ _id: order._id, status: 'Pending' }, { status: 'Cancelled' }, { new: true });
   if (!upd) throw httpError(400, 'Only orders that have not been processed can be cancelled');
+  await recordActivity({ action: 'Order cancelled', details: `Order ${order.orderNumber} cancelled`, user: req.user, warehouse: order.warehouse, recipients: [order.createdBy], entityType: 'order', entityId: order._id });
   res.json(upd);
 });
 

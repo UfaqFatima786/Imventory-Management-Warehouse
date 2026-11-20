@@ -13,12 +13,24 @@ export default function Inventory() {
   async function submit(e) {
     e.preventDefault();
     try {
-      await api.post(`/stock/${m.type}`, { product: m.product, warehouse: m.warehouse, quantity: Number(m.quantity), note: m.note });
-      toast(m.type === 'in' ? 'Stock received' : 'Stock removed');
+      let response;
+      if (m.type === 'transfer') {
+        response = await api.post('/stock/transfer', { product: m.product, fromWarehouse: m.fromWarehouse, toWarehouse: m.toWarehouse, quantity: Number(m.quantity), note: m.note });
+      } else {
+        response = await api.post(`/stock/${m.type}`, { product: m.product, warehouse: m.warehouse, quantity: Number(m.quantity), note: m.note });
+      }
+      toast(m.type === 'in' ? 'Stock received' : m.type === 'out' ? 'Stock removed' : 'Stock transferred');
+      if (response.data.notification?.reason) toast(`Low-stock email was not sent: ${response.data.notification.reason}`, 'error');
       setM(null); reload();
     } catch (err) { toast(errMsg(err), 'error'); }
   }
-  const open = (type, s) => setM({ type, product: s?.product._id || '', warehouse: s?.warehouse._id || wh || whs?.[0]?._id || '', quantity: '', note: '' });
+  const open = (type, s) => {
+    const warehouse = s?.warehouse._id || wh || whs?.[0]?._id || '';
+    const nextWarehouse = whs?.find((w) => w._id !== warehouse)?._id || '';
+    setM(type === 'transfer'
+      ? { type, product: s?.product._id || '', fromWarehouse: warehouse, toWarehouse: nextWarehouse, quantity: '', note: '' }
+      : { type, product: s?.product._id || '', warehouse, quantity: '', note: '' });
+  };
   const set = (k) => (e) => setM({ ...m, [k]: e.target.value });
 
   return (
@@ -26,9 +38,10 @@ export default function Inventory() {
       <PageHead title="Inventory" sub="Live stock per warehouse. Every change is logged in stock history.">
         <button className="btn amber" onClick={() => open('in')}>Add stock</button>
         <button className="btn" onClick={() => open('out')}>Remove stock</button>
+        <button className="btn ghost" onClick={() => open('transfer')}>Transfer stock</button>
       </PageHead>
       <div className="filters">
-        <input placeholder="Search product or SKU" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder="Scan barcode or search SKU / product" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={wh} onChange={(e) => setWh(e.target.value)}><option value="">All my warehouses</option>{whs?.map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select>
       </div>
       {loading ? <Spinner /> : (
@@ -46,11 +59,16 @@ export default function Inventory() {
       {m && (
         <Modal title={m.type === 'in' ? 'Add received stock' : 'Remove stock'} onClose={() => setM(null)}>
           <form onSubmit={submit}>
-            <div className="field"><label>Warehouse</label><select required value={m.warehouse} onChange={set('warehouse')}><option value="">Select warehouse</option>{whs?.map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select></div>
+            {m.type === 'transfer' ? (
+              <div className="cols">
+                <div className="field"><label>From warehouse</label><select required value={m.fromWarehouse} onChange={(e) => setM({ ...m, fromWarehouse: e.target.value, toWarehouse: m.toWarehouse === e.target.value ? '' : m.toWarehouse })}><option value="">Select source</option>{whs?.map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select></div>
+                <div className="field"><label>To warehouse</label><select required value={m.toWarehouse} onChange={set('toWarehouse')}><option value="">Select destination</option>{whs?.filter((w) => w._id !== m.fromWarehouse).map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select></div>
+              </div>
+            ) : <div className="field"><label>Warehouse</label><select required value={m.warehouse} onChange={set('warehouse')}><option value="">Select warehouse</option>{whs?.map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select></div>}
             <div className="field"><label>Product</label><select required value={m.product} onChange={set('product')}><option value="">Select product</option>{prods?.map((p) => <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>)}</select></div>
             <div className="field"><label>Quantity</label><input type="number" min="1" step="1" required value={m.quantity} onChange={set('quantity')} /></div>
-            <div className="field"><label>Note</label><input value={m.note} onChange={set('note')} placeholder={m.type === 'in' ? 'e.g. Delivery from supplier' : 'e.g. Damaged units'} /></div>
-            <div className="form-actions"><button type="button" className="btn ghost" onClick={() => setM(null)}>Cancel</button><button className={`btn ${m.type === 'in' ? 'amber' : ''}`}>{m.type === 'in' ? 'Add stock' : 'Remove stock'}</button></div>
+            <div className="field"><label>Note</label><input value={m.note} onChange={set('note')} placeholder={m.type === 'in' ? 'e.g. Delivery from supplier' : m.type === 'transfer' ? 'e.g. Rebalancing stock' : 'e.g. Damaged units'} /></div>
+            <div className="form-actions"><button type="button" className="btn ghost" onClick={() => setM(null)}>Cancel</button><button className={`btn ${m.type === 'in' ? 'amber' : ''}`}>{m.type === 'in' ? 'Add stock' : m.type === 'transfer' ? 'Transfer stock' : 'Remove stock'}</button></div>
           </form>
         </Modal>
       )}

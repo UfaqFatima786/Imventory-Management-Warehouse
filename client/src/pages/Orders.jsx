@@ -3,6 +3,53 @@ import api, { errMsg } from '../api';
 import { useAuth } from '../AuthContext';
 import { Badge, Confirm, Empty, Modal, PageHead, Spinner, fdate, money, useFetch, useToast } from '../ui';
 
+async function downloadInvoice(order, toast) {
+  try {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+    const doc = new jsPDF();
+    doc.setFontSize(22);
+    doc.setTextColor(79, 70, 229);
+    doc.text('StockYard', 14, 20);
+    doc.setFontSize(16);
+    doc.setTextColor(30, 30, 55);
+    doc.text('Sales invoice', 14, 32);
+    doc.setFontSize(10);
+    doc.setTextColor(95, 100, 125);
+    doc.text(`Order: ${order.orderNumber}`, 14, 42);
+    doc.text(`Date: ${fdate(order.updatedAt || order.createdAt)}`, 14, 48);
+    doc.text(`Customer: ${order.customerName}${order.customerPhone ? ` · ${order.customerPhone}` : ''}`, 110, 42);
+    doc.text(`Warehouse: ${order.warehouse?.name || '—'}`, 110, 48);
+    autoTable(doc, {
+      startY: 58,
+      head: [['Product', 'SKU', 'Qty', 'Unit price', 'Line total']],
+      body: order.products.map((line) => [
+        line.product?.name || 'Product',
+        line.product?.sku || '—',
+        String(line.quantity),
+        money(line.price),
+        money(line.price * line.quantity),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
+      styles: { fontSize: 9, cellPadding: 3 },
+    });
+    let finalY = doc.lastAutoTable?.finalY || 65;
+    if (finalY > 265) {
+      doc.addPage();
+      finalY = 20;
+    }
+    doc.setFontSize(13);
+    doc.setTextColor(30, 30, 55);
+    doc.text(`Total: ${money(order.totalAmount)}`, 196, finalY + 12, { align: 'right' });
+    doc.setFontSize(9);
+    doc.setTextColor(95, 100, 125);
+    doc.text('Payment status: Completed', 14, finalY + 12);
+    doc.save(`Invoice-${order.orderNumber}.pdf`);
+  } catch (error) {
+    toast(`Could not generate the invoice: ${error.message}`, 'error');
+  }
+}
+
 function NewOrder({ onClose, onDone }) {
   const toast = useToast();
   const { data: whs } = useFetch('/warehouses');
@@ -82,6 +129,7 @@ export default function Orders() {
               <td className="num">{money(o.totalAmount)}</td><td><Badge>{o.status}</Badge></td>
               <td><div className="rowbtns">
                 <button className="btn sm ghost" onClick={() => setDetail(o)}>View</button>
+                {o.status === 'Completed' && <button className="btn sm ghost" onClick={() => downloadInvoice(o, toast)}>PDF invoice</button>}
                 {!isRep && o.status === 'Pending' && <button className="btn sm" onClick={() => setAsk({ order: o, kind: 'status', status: 'Processing' })}>Process</button>}
                 {!isRep && o.status === 'Processing' && <button className="btn sm" onClick={() => setAsk({ order: o, kind: 'status', status: 'Completed' })}>Complete</button>}
                 {o.status === 'Pending' && user.role !== 'warehouseManager' && <button className="btn sm danger" onClick={() => setAsk({ order: o, kind: 'cancel' })}>Cancel</button>}
@@ -92,6 +140,7 @@ export default function Orders() {
       {creating && <NewOrder onClose={() => setCreating(false)} onDone={() => { setCreating(false); reload(); }} />}
       {detail && (
         <Modal title={`Order ${detail.orderNumber}`} onClose={() => setDetail(null)} wide>
+          {detail.status === 'Completed' && <div className="actions" style={{ justifyContent: 'flex-end', marginBottom: 10 }}><button className="btn sm amber" onClick={() => downloadInvoice(detail, toast)}>Download PDF invoice</button></div>}
           <p><Badge>{detail.status}</Badge> &nbsp; {detail.customerName} {detail.customerPhone && `· ${detail.customerPhone}`}</p>
           <p className="muted">From {detail.warehouse?.name} · placed {fdate(detail.createdAt)} by {detail.createdBy?.name}</p>
           <div className="tablewrap" style={{ marginTop: 12 }}><table>

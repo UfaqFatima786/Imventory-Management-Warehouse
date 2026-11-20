@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { protect } = require('../middleware/auth');
 const { httpError } = require('../utils/helpers');
+const { recordActivity } = require('../services/activity');
 
 const sign = (u) => jwt.sign({ id: u._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 const PUBLIC_ROLES = ['warehouseManager', 'supplier', 'salesRepresentative']; // never admin
@@ -15,6 +16,7 @@ router.post('/register', async (req, res) => {
   if (!PUBLIC_ROLES.includes(role)) throw httpError(403, 'This role cannot be self-registered');
   if (await User.findOne({ email })) throw httpError(409, 'Email is already registered');
   const user = await User.create({ name, email, password, phone, role });
+  await recordActivity({ action: 'User registered', details: `${user.name} registered a ${user.role} account`, user, entityType: 'user', entityId: user._id, notificationLink: '/profile' });
   res.status(201).json({ token: sign(user), user });
 });
 

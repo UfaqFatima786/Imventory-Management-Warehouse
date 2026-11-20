@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { User, Warehouse } = require('../models');
 const { protect, authorize } = require('../middleware/auth');
 const { httpError, escapeRe, applyImage, assertImage, removeFile } = require('../utils/helpers');
+const { recordActivity } = require('../services/activity');
 
 router.use(protect);
 
@@ -39,6 +40,7 @@ router.post('/', authorize('admin'), async (req, res) => {
   assertImage(image);
   const user = await User.create({ name, email, password, phone, role, assignedWarehouses, image, imageFileId });
   await syncAssignments(user);
+  await recordActivity({ action: 'User created', details: `User ${user.name} created with role ${user.role}`, user: req.user, recipients: [user._id], entityType: 'user', entityId: user._id });
   res.status(201).json(user);
 });
 
@@ -61,6 +63,7 @@ router.put('/:id', async (req, res) => {
   }
   await user.save();
   if (isAdmin) await syncAssignments(user);
+  await recordActivity({ action: 'User updated', details: `User ${user.name} profile updated`, user: req.user, recipients: [user._id], entityType: 'user', entityId: user._id });
   res.json(await User.findById(user._id).populate('assignedWarehouses', 'name'));
 });
 
@@ -70,6 +73,7 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
   if (!user) throw httpError(404, 'User not found');
   await removeFile(user.imageFileId);
   await Warehouse.updateMany({ manager: user._id }, { manager: null });
+  await recordActivity({ action: 'User deleted', details: `User ${user.name} deleted`, user: req.user, entityType: 'user', entityId: user._id });
   res.json({ message: 'User deleted' });
 });
 

@@ -16,6 +16,8 @@ cd client && npm install && npm run dev   # http://localhost:5173 (proxies /api 
 ```
 The app works without ImageKit keys (seed data uses placeholder images); uploads need the three IMAGEKIT_* values.
 
+Copy `server/.env.example` to `server/.env` and set your MongoDB URI and a private JWT secret. To enable low-stock email alerts, also set the SMTP host, port, username, password and sender address. Alerts go to registered Admin email addresses when stock crosses down to its configured low-stock limit.
+
 ## Demo logins (after `npm run seed`)
 | Role | Email | Password |
 |---|---|---|
@@ -39,6 +41,14 @@ The app works without ImageKit keys (seed data uses placeholder images); uploads
 - **ImageKit**: `GET /api/upload/auth` validates declared type/size and returns signed params; browser uploads directly; backend only accepts URLs under your ImageKit endpoint and deletes replaced files by `fileId`.
 - Public registration cannot create Admins. Passwords hashed with bcryptjs (pure-JS bcrypt).
 - Approving a supply request records the decision; the manager then books the delivery via Inventory -> Add stock.
+
+## Bonus features
+- **Warehouse transfers**: Inventory -> Transfer stock records paired transfer-out and transfer-in transactions. Both warehouses must be accessible to the operator, and destination capacity is checked.
+- **PDF invoices**: Completed orders can be downloaded as PDF invoices from Orders.
+- **Product discovery**: Filter by category, supplier, warehouse and stock availability; search accepts product name, SKU or barcode. Barcode values are optional and unique.
+- **Analytics**: Admins and warehouse managers can view six months of completed sales and stock movement, plus the top-selling products in their data scope.
+- **Activity log**: Admins can view all recorded operations; warehouse managers see operations for their assigned warehouses.
+- **Low-stock email alerts**: Configure the SMTP_* variables in `server/.env`. Alerts are sent to Admin users when a stock level crosses down to its product's low-stock limit.
 
 ## API
 All endpoints from the task sheet are implemented, plus `GET /api/stats`, `GET /api/users/suppliers`, `GET /api/products/categories`, `POST /api/users`.
