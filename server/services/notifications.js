@@ -65,6 +65,14 @@ async function notifyLowStock({ productId, warehouseId, previousQuantity, quanti
   if (!product || quantity > product.lowStockLimit ||
       !(previousQuantity > product.lowStockLimit || previousQuantity === 0)) return { sent: false };
 
+  await notifyOperation({
+    warehouseIds: [warehouseId],
+    title: 'Low stock alert',
+    message: `${product.name} (${product.sku}) is at ${quantity} units. Limit: ${product.lowStockLimit}.`,
+    category: 'stock',
+    link: '/low-stock',
+  });
+
   const mailer = getTransport();
   if (!mailer || !process.env.SMTP_FROM) {
     console.warn(`Low-stock email not sent for ${product.sku}: SMTP_HOST, SMTP_USER, SMTP_PASS and SMTP_FROM must be configured`);

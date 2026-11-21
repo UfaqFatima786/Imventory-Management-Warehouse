@@ -152,6 +152,11 @@ select option{background:var(--card);color:var(--text)}
 .notification-all{width:100%;padding:12px;border:0;border-top:1px solid var(--line);background:var(--hover);color:var(--p2);font-weight:700;cursor:pointer}
 .notification-page-list{display:grid;gap:10px}
 .notification-page-item{align-items:center;background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+.qr-label{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px}
+.qr-label canvas{max-width:100%;height:auto}
+.qr-label h3{margin-top:5px}
+.qr-reader{min-height:290px;margin-top:12px;border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.qr-reader video{border-radius:12px;object-fit:cover}
 
 /* auth */
 .auth{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr;background:var(--bg)}

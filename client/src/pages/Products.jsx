@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { QRCodeCanvas } from 'qrcode.react';
 import api, { errMsg } from '../api';
 import { useAuth } from '../AuthContext';
 import { Badge, Confirm, Empty, ImageField, Modal, PageHead, Spinner, Thumb, money, useFetch, useToast } from '../ui';
+import QrScanner, { normalizeQrValue } from '../QrScanner';
 
 const blank = { name: '', sku: '', barcode: '', category: '', price: '', lowStockLimit: 10, description: '', supplier: '', imageUrl: '', imageFileId: '' };
 
@@ -10,6 +12,8 @@ export default function Products() {
   const toast = useToast();
   const [q, setQ] = useState(''), [category, setCategory] = useState(''), [warehouse, setWarehouse] = useState('');
   const [supplier, setSupplier] = useState(''), [availability, setAvailability] = useState('');
+  const [qrProduct, setQrProduct] = useState(null), [scanning, setScanning] = useState(false);
+  const qrRef = useRef(null);
   const { data, loading, reload } = useFetch('/products', { q, category, warehouse, supplier, availability });
   const { data: cats, reload: reloadCats } = useFetch('/products/categories');
   const { data: whs } = useFetch('/warehouses');
@@ -33,10 +37,23 @@ export default function Products() {
     try { setDetail((await api.get(`/products/${p._id}`)).data); } catch (err) { toast(errMsg(err), 'error'); }
   }
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const acceptScan = (value) => {
+    setQ(normalizeQrValue(value));
+    toast('QR code scanned. Searching the product catalogue.');
+  };
+  function downloadQr() {
+    const canvas = qrRef.current?.querySelector('canvas');
+    if (!canvas) return toast('QR code is not ready yet.', 'error');
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = `${qrProduct.sku}-QR.png`;
+    link.click();
+  }
 
   return (
     <>
       <PageHead title={user.role === 'supplier' ? 'My products' : 'Products'} sub="Search the catalogue and check availability.">
+        <button className="btn ghost" onClick={() => setScanning(true)}>Scan QR</button>
         {canEdit && <button className="btn amber" onClick={() => setForm({ ...blank })}>Add product</button>}
       </PageHead>
       <div className="filters">
@@ -56,6 +73,7 @@ export default function Products() {
               <td className="num"><Badge tone={p.availableStock <= p.lowStockLimit ? 'low' : 'ok'}>{p.availableStock}</Badge></td>
               <td><div className="rowbtns">
                 <button className="btn sm ghost" onClick={() => open(p)}>Details</button>
+                <button className="btn sm ghost" onClick={() => setQrProduct(p)}>QR label</button>
                 {canEdit && <button className="btn sm ghost" onClick={() => setForm({ ...blank, ...p, supplier: p.supplier?._id || '' })}>Edit</button>}
                 {user.role === 'admin' && <button className="btn sm danger" onClick={() => setDel(p)}>Delete</button>}
               </div></td>
@@ -93,6 +111,18 @@ export default function Products() {
           {!detail.stock.length && <Empty>Not stocked in any warehouse yet.</Empty>}
         </Modal>
       )}
+      {qrProduct && (
+        <Modal title="Product QR label" onClose={() => setQrProduct(null)}>
+          <div className="qr-label">
+            <div ref={qrRef}><QRCodeCanvas value={`SKU:${qrProduct.sku}`} size={240} level="M" includeMargin /></div>
+            <h3>{qrProduct.name}</h3>
+            <p className="muted">SKU: {qrProduct.sku}{qrProduct.barcode ? ` · Barcode: ${qrProduct.barcode}` : ''}</p>
+            <p className="muted">Scan this label from Products or Inventory to look up this item.</p>
+            <button type="button" className="btn amber" onClick={downloadQr}>Download QR PNG</button>
+          </div>
+        </Modal>
+      )}
+      {scanning && <QrScanner onScan={acceptScan} onClose={() => setScanning(false)} />}
     </>
   );
 }

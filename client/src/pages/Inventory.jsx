@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import api, { errMsg } from '../api';
 import { Badge, Empty, Modal, PageHead, Spinner, Thumb, useFetch, useToast } from '../ui';
+import QrScanner, { normalizeQrValue } from '../QrScanner';
 
 export default function Inventory() {
   const toast = useToast();
@@ -9,6 +10,7 @@ export default function Inventory() {
   const { data: whs } = useFetch('/warehouses');
   const { data: prods } = useFetch('/products');
   const [m, setM] = useState(null); // {type, product, warehouse, quantity, note}
+  const [scanning, setScanning] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
@@ -43,6 +45,7 @@ export default function Inventory() {
       <div className="filters">
         <input placeholder="Scan barcode or search SKU / product" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={wh} onChange={(e) => setWh(e.target.value)}><option value="">All my warehouses</option>{whs?.map((w) => <option key={w._id} value={w._id}>{w.name}</option>)}</select>
+        <button className="btn ghost" onClick={() => setScanning(true)}>Scan QR</button>
       </div>
       {loading ? <Spinner /> : (
         <div className="tablewrap"><table>
@@ -72,6 +75,7 @@ export default function Inventory() {
           </form>
         </Modal>
       )}
+      {scanning && <QrScanner onScan={(value) => { setQ(normalizeQrValue(value)); toast('QR code scanned. Searching inventory.'); }} onClose={() => setScanning(false)} />}
     </>
   );
 }
