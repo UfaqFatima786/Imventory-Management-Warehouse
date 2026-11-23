@@ -4,7 +4,6 @@ Four role-based dashboards (Admin, Warehouse Manager, Supplier, Sales Representa
 atomic stock-in/out, sales orders with single-deduction processing, supply-request approvals and ImageKit uploads.
 
 ## Quick start
-```bash
 # 1. API
 cd server && cp .env.example .env     # fill MONGO_URI, JWT_SECRET, ImageKit keys
 npm install
@@ -13,17 +12,17 @@ npm run dev                           # http://localhost:5000
 
 # 2. Web app (new terminal)
 cd client && npm install && npm run dev   # http://localhost:5173 (proxies /api to :5000)
-```
+
 The app works without ImageKit keys (seed data uses placeholder images); uploads need the three IMAGEKIT_* values.
 
 ## Demo logins (after `npm run seed`)
 | Role | Email | Password |
-|---|---|---|
+.
 | Admin | admin@demo.com | Admin@123 |
 | Warehouse manager | manager1@demo.com (Karachi Central, Port Qasim) / manager2@demo.com (Lahore Hub) | Password@123 |
 | Supplier | supplier1@demo.com / supplier2@demo.com | Password@123 |
 | Sales rep | sales1@demo.com / sales2@demo.com | Password@123 |
-
+.
 ## Try the instructor scenario
 1. Admin: Products -> add Laptop (upload image, Rs. 80,000, limit 5); Users -> create roles; Warehouses -> assign manager.
 2. Manager: Inventory -> Add stock 20 laptops, Remove 3 -> 17, both appear in Stock history.
