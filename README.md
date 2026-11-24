@@ -32,16 +32,7 @@ cd server
 npm install
 ```
 
-Create `server/.env` with the required settings:
-
-```env
-MONGO_URI=mongodb://127.0.0.1:27017/inventory-management
-JWT_SECRET=replace-with-a-long-random-secret
-CLIENT_URL=http://localhost:5173
-PORT=5000
-```
-
-ImageKit settings (`IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, and `IMAGEKIT_URL_ENDPOINT`) are optional and are only needed for image uploads. SMTP settings are optional and are needed for low-stock email alerts.
+Copy `server/.env.example` to `server/.env`, then set `MONGO_URI` and a private `JWT_SECRET`. The ImageKit settings are optional and only needed for image uploads. SMTP settings are optional and needed for low-stock email alerts. `client/.env.example` is only needed when the API is hosted on a different origin.
 
 Start the API in the backend terminal:
 
@@ -60,3 +51,12 @@ Open `http://localhost:5173`.
 ## Seed data
 
 `npm run seed` from `server/` loads demo accounts and inventory data. **It deletes all existing application data in the configured MongoDB database first**, so only run it against a disposable development database.
+
+After seeding, demo logins are:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@demo.com` | `Admin@123` |
+| Warehouse manager | `manager1@demo.com` or `manager2@demo.com` | `Password@123` |
+| Supplier | `supplier1@demo.com` or `supplier2@demo.com` | `Password@123` |
+| Sales representative | `sales1@demo.com` or `sales2@demo.com` | `Password@123` |
