@@ -10,6 +10,25 @@ app.use(express.json());
 
 app.get('/', (req, res) => res.json({ message: 'Inventory API is running' }));
 
+let connectionPromise;
+const connectToDatabase = () => {
+  if (!process.env.MONGO_URI) {
+    return Promise.reject(new Error('MONGO_URI environment variable is required'));
+  }
+  if (mongoose.connection.readyState === 1) return Promise.resolve();
+  if (!connectionPromise) {
+    connectionPromise = mongoose.connect(process.env.MONGO_URI)
+      .finally(() => { connectionPromise = null; });
+  }
+  return connectionPromise;
+};
+
+if (process.env.VERCEL) {
+  app.use((req, res, next) => {
+    connectToDatabase().then(() => next(), next);
+  });
+}
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/products', require('./routes/products'));
@@ -30,6 +49,10 @@ app.use((err, req, res, next) => {
   res.status(status).json({ message: err.code === 11000 ? 'A record with this unique value already exists' : err.message });
 });
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => app.listen(process.env.PORT || 5000, () => console.log('API running on port', process.env.PORT || 5000)))
-  .catch((e) => { console.error('MongoDB connection failed:', e.message); process.exit(1); });
+if (!process.env.VERCEL) {
+  connectToDatabase()
+    .then(() => app.listen(process.env.PORT || 5000, () => console.log('API running on port', process.env.PORT || 5000)))
+    .catch((e) => { console.error('MongoDB connection failed:', e.message); process.exit(1); });
+}
+
+module.exports = app;
